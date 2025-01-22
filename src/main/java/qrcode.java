@@ -7,30 +7,36 @@ import com.google.zxing.client.j2se.MatrixToImageWriter;
 import com.google.zxing.common.BitMatrix;
 import com.google.zxing.qrcode.QRCodeWriter;
 
-
 public class qrcode {
     // Klasa do przechowywania informacji o kodach QR
     static class QRRecord {
         private String userName;
         private String url;
         private String filePath;
+
         public QRRecord(String userName, String url, String filePath) {
             this.userName = userName;
             this.url = url;
             this.filePath = filePath;
         }
+
         @Override
         public String toString() {
             return "Użytkownik: " + userName + ", URL: " + url + ", Plik: " + filePath;
         }
     }
+
     private static List<QRRecord> qrHistory = new ArrayList<>();
+    private static Set<String> uniqueURLs = new HashSet<>();
+    private static Map<String, List<String>> userURLMap = new HashMap<>();
+
     // Funkcja do wprowadzania imienia użytkownika
     private static String getUserName() {
         Scanner scan = new Scanner(System.in);
         System.out.print("Wpisz imię: ");
         return scan.nextLine();
     }
+
     // Funkcja do generowania losowego URL
     private static String generateRandomURL() {
         List<String> domains = Arrays.asList("youtube.com", "random.org", "san.edu.pl",
@@ -43,12 +49,14 @@ public class qrcode {
                 "www.pinterest.com/pin/1125477763132909238");
         return "https://" + domains.get(new Random().nextInt(domains.size()));
     }
+
     // Funkcja do wprowadzania URL przez użytkownika
     private static String getURL() {
         Scanner scan = new Scanner(System.in);
         System.out.print("Wpisz URL: ");
         return scan.nextLine();
     }
+
     // Sprawdzanie poprawności URL
     private static boolean isValidURL(String urlString) {
         try {
@@ -58,27 +66,38 @@ public class qrcode {
             return false;
         }
     }
+
     // Funkcja do generowania kodu QR
     private static void generateQRCode(String userName, String URL, String filePath) {
         try {
+            if (!uniqueURLs.add(URL)) {
+                System.out.println("Ten URL już istnieje w systemie. Kod QR nie został wygenerowany.");
+                return;
+            }
+
             QRCodeWriter qrCodeWriter = new QRCodeWriter();
-            BitMatrix bitMatrix = qrCodeWriter.encode(URL, BarcodeFormat.QR_CODE,
-                    500, 500);
+            BitMatrix bitMatrix = qrCodeWriter.encode(URL, BarcodeFormat.QR_CODE, 500, 500);
             File outputFile = new File(filePath);
+
             // Sprawdzanie poprawności ścieżki
             File parentDir = outputFile.getParentFile();
             if (parentDir == null || !parentDir.exists()) {
                 throw new IOException("Ścieżka zapisu kodu QR jest nieprawidłowa lub nie istnieje");
             }
+
             MatrixToImageWriter.writeToPath(bitMatrix, "PNG", outputFile.toPath());
             System.out.println("Kod QR zapisano jako " + filePath);
             qrHistory.add(new QRRecord(userName, URL, filePath));
+
+            userURLMap.putIfAbsent(userName, new ArrayList<>());
+            userURLMap.get(userName).add(URL);
         } catch (IOException e) {
             System.out.println("Błąd podczas zapisu kodu QR: " + e.getMessage());
         } catch (WriterException e) {
             System.out.println("Błąd podczas generowania kodu QR: " + e.getMessage());
         }
     }
+
     // Funkcja do wyświetlania historii kodów QR
     private static void displayQRHistory() {
         if (qrHistory.isEmpty()) {
@@ -90,12 +109,26 @@ public class qrcode {
             }
         }
     }
+
+    // Funkcja do wyświetlania URL użytkownika
+    private static void displayUserURLs(String userName) {
+        List<String> urls = userURLMap.get(userName);
+        if (urls == null || urls.isEmpty()) {
+            System.out.println("Użytkownik " + userName + " nie ma zapisanych URL.");
+        } else {
+            System.out.println("URL zapisane dla użytkownika " + userName + ":");
+            for (String url : urls) {
+                System.out.println(url);
+            }
+        }
+    }
+
     // Główna logika programu
     public static void main(String[] args) {
         Scanner scan = new Scanner(System.in);
         String userName = getUserName(); // Pobranie imienia użytkownika
         while (true) {
-            System.out.println("\nMenu:\n1. Wygeneruj kod QR dla podanego URL\n2. Wygeneruj kod QR dla losowego URL\n3. Wyświetl historię\n4. Wyjście");
+            System.out.println("\n Copyright: KOSIK VLADYSLAV\nMenu:\n1. Wygeneruj kod QR dla podanego URL\n2. Wygeneruj kod QR dla losowego URL\n3. Wyświetl historię\n4. Wyświetl URL użytkownika\n5. Wyjście");
             System.out.print("Wybierz opcję: ");
             String choice = scan.nextLine();
             switch (choice) {
@@ -120,6 +153,9 @@ public class qrcode {
                     displayQRHistory();
                     break;
                 case "4":
+                    displayUserURLs(userName);
+                    break;
+                case "5":
                     System.out.println("Do widzenia!");
                     scan.close();
                     return;
